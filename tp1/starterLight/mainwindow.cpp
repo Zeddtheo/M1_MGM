@@ -74,8 +74,70 @@ void MainWindow::showSelectionsNeighborhood(MyMesh* _mesh)
      *    - les arêtes incidentes pour les sommets
      */
 
+    //Select neighbour edges for vertices
+    if(vertexSelection >= 0 && static_cast<size_t>(vertexSelection) < _mesh->n_vertices()){
+        VertexHandle vh =_mesh->vertex_handle(vertexSelection);
+        _mesh->set_color(vh, MyMesh::Color(255, 0, 0));
+        _mesh->data(vh).thickness = 12;
 
+        HalfedgeHandle heh = _mesh->halfedge_handle(vh);
+        HalfedgeHandle curr_heh = heh;
+        do{
+            EdgeHandle eh = _mesh->edge_handle(curr_heh);
+            _mesh->set_color(eh, MyMesh::Color(200, 0, 0));
+            curr_heh = _mesh->opposite_halfedge_handle(curr_heh);
+            curr_heh =_mesh->next_halfedge_handle(curr_heh);
+        }while(curr_heh!=heh);
+    }
+
+    //Select neighbour faces for edges
+    if(edgeSelection >= 0 && static_cast<size_t>(edgeSelection) < _mesh->n_edges()){
+        EdgeHandle eh = _mesh->edge_handle(edgeSelection);
+        _mesh->set_color(eh, MyMesh::Color(0, 255, 0));
+        _mesh->data(eh).thickness = 4;
+
+        HalfedgeHandle heh0 = _mesh->halfedge_handle(eh, 0);
+        HalfedgeHandle heh1 = _mesh->halfedge_handle(eh, 1);
+
+        FaceHandle fh0 = _mesh->face_handle(heh0);
+        if(fh0.is_valid()) _mesh->set_color(fh0, MyMesh::Color(0, 200, 0));
+
+        FaceHandle fh1 = _mesh->face_handle(heh1);
+        if(fh1.is_valid()) _mesh->set_color(fh1, MyMesh::Color(0, 200, 0));
+
+        VertexHandle vh1 = _mesh->to_vertex_handle(heh0);
+        _mesh->set_color(vh1, MyMesh::Color(0, 255, 0));
+        _mesh->data(vh1).thickness = 12;
+        VertexHandle vh2 = _mesh->from_vertex_handle(heh0);
+        _mesh->set_color(vh2, MyMesh::Color(0, 255, 0));
+        _mesh->data(vh2).thickness = 12;
+    }
+
+    //Select neighbour faces for one face
+    if(faceSelection >= 0 && static_cast<size_t>(faceSelection) < _mesh->n_faces()) {
+        FaceHandle fh = _mesh->face_handle(faceSelection);
+        _mesh->set_color(fh, MyMesh::Color(0, 0, 255));
+
+        HalfedgeHandle heh = _mesh->halfedge_handle(fh);
+        for(int i = 0; i < 3; ++i){
+            EdgeHandle eh = _mesh->edge_handle(heh);
+
+            _mesh->set_color(eh, MyMesh::Color(0, 0, 200));
+           _mesh->data(eh).thickness = 4;
+
+            VertexHandle vh = _mesh->to_vertex_handle(heh);
+            _mesh->set_color(vh, MyMesh::Color(0, 0, 200));
+            _mesh->data(vh).thickness = 12;
+
+            HalfedgeHandle oppo_heh = _mesh->opposite_halfedge_handle(heh);
+            fh = _mesh->face_handle(oppo_heh);
+            _mesh->set_color(fh,MyMesh::Color(0,0,200));
+
+            heh = _mesh->next_halfedge_handle(heh);
+        }
+    }
     // on affiche le nouveau maillage
+
     displayMesh(_mesh);
 }
 
@@ -85,12 +147,13 @@ void MainWindow::showBorder(MyMesh* _mesh)
     resetAllColorsAndThickness(_mesh);
 
     /* **** à compléter ! **** */
+    // Use iterators and is_boundary()
     for (MyMesh::EdgeIter curEdge = _mesh->edges_begin(); curEdge != _mesh->edges_end(); curEdge++)
     {
         EdgeHandle eh = *curEdge;
 
         if(_mesh->is_boundary(eh))
-            _mesh->set_color(eh, MyMesh::Color(255, 0, 255));
+            _mesh->set_color(eh, MyMesh::Color(255, 255, 255));
     }
 
     // on affiche le nouveau maillage
@@ -144,7 +207,6 @@ void MainWindow::on_pushButton_voisinage_clicked()
     else
         showSelectionsNeighborhood(&mesh);
 }
-
 
 void MainWindow::on_pushButton_vertexMoins_clicked()
 {
@@ -232,7 +294,6 @@ void MainWindow::on_pushButton_afficherChemin_clicked()
 
     showPath(&mesh, indexV1, indexV2);
 }
-
 
 void MainWindow::on_pushButton_chargement_clicked()
 {
@@ -478,7 +539,6 @@ void MainWindow::displayMesh(MyMesh* _mesh, DisplayMode mode)
     delete[] pointsCols;
     delete[] pointsVerts;
 }
-
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow)
 {
