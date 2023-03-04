@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include <queue>
 
 /* **** début de la partie à compléter **** */
 
@@ -160,8 +161,7 @@ void MainWindow::showBorder(MyMesh* _mesh)
     displayMesh(_mesh);
 }
 
-void MainWindow::showPath(MyMesh* _mesh, int v1, int v2)
-{
+void MainWindow::showPath(MyMesh* _mesh, int v1, int v2){
     // on réinitialise l'affichage
     resetAllColorsAndThickness(_mesh);
 
@@ -171,12 +171,127 @@ void MainWindow::showPath(MyMesh* _mesh, int v1, int v2)
     _mesh->data(_mesh->vertex_handle(v1)).thickness = 12;
     _mesh->data(_mesh->vertex_handle(v2)).thickness = 12;
 
-    /* **** à compléter ! **** */
 
+    /* **** à compléter ! **** */
+    // We use A* algorithme here
+    std::vector<int> path = a_star(_mesh, v1, v2);
+    qDebug() << "path size: " << path.size();
+    if(path.empty()){
+        qDebug()<<"No valid path!"<<Qt::endl;
+        MyMesh::VertexHandle vh1(v1);
+        MyMesh::VertexHandle vh2 (v2);
+        _mesh->set_color(_mesh->edge_handle(_mesh->find_halfedge(vh1,vh2)), MyMesh::Color(255,0,0));
+    }else if(path.empty()||path.size() == 1){
+        MyMesh::VertexHandle vh1(v1);
+        MyMesh::VertexHandle vh2 (v2);
+        _mesh->set_color(_mesh->edge_handle(_mesh->find_halfedge(vh1,vh2)), MyMesh::Color(255,0,0));
+    }else{
+            for(int i = 0; i < path.size()-1; ++i){
+                int v1 = path[i];
+                int v2 = path[i+1];
+                MyMesh::VertexHandle vh1(v1);
+                MyMesh::VertexHandle vh2 (v2);
+                _mesh->set_color(_mesh->edge_handle(_mesh->find_halfedge(vh1,vh2)), MyMesh::Color(255,0,0));
+       }
+    }
     // on affiche le nouveau maillage
     displayMesh(_mesh);
 }
 
+ std::vector<int> MainWindow::a_star(MyMesh* _mesh, int v1, int v2){
+       std::priority_queue<Node, std::vector<Node>, CompareNodes> pq;
+       std::vector<Node> openList(_mesh->n_vertices());
+       std::vector<Node> closedList(_mesh->n_vertices());
+       std::vector<int> path;
+
+       Node startNode = {v1, 0, 0, 0, -1};
+       startNode.h = heuristic_euclidean(_mesh, startNode.id, v2);
+       startNode.f = startNode.g + startNode.h;
+       openList[v1] = startNode;
+       pq.push(startNode);
+
+       while (!pq.empty()) {
+                Node current = pq.top();
+                pq.pop();
+
+                // We find v2
+                if (current.id == v2) {
+                    // Trace back
+                    path.push_back(current.id);
+                    int parent_id = current.parent;
+                    while (parent_id != -1) {
+                        path.push_back(parent_id);
+                        parent_id = closedList[parent_id].parent;
+                    }
+                    std::reverse(path.begin(), path.end());
+                    return path;
+                }
+
+                closedList[current.id] = current;
+
+                // Traverse all neighbors
+                MyMesh::VertexHandle vh(current.id);
+                for (MyMesh::VertexVertexIter vv_it = _mesh->vv_iter(vh); vv_it.is_valid(); ++vv_it) {
+                    int neighbor_id = vv_it->idx();
+
+                    //  Neighbor node already in the closedlist
+                    if (closedList[neighbor_id].id == neighbor_id) {
+                        continue;
+                    }
+
+                    // get new g h f
+                    float new_g = current.g + heuristic_euclidean(_mesh, current.id, neighbor_id);
+                    float new_h = heuristic_euclidean(_mesh, neighbor_id, v2);
+                    float new_f = new_g + new_h;
+
+                    //  Update
+                    if (openList[neighbor_id].id == neighbor_id) {
+                        if (new_f < openList[neighbor_id].f) {
+                            openList[neighbor_id].g = new_g;
+                            openList[neighbor_id].h = new_h;
+                            openList[neighbor_id].f = new_f;
+                            openList[neighbor_id].parent = current.id;
+                            pq.push(openList[neighbor_id]);
+                        }
+                    } else {
+                        Node neighbor = {neighbor_id, new_g, new_h, new_f, current.id};
+                        openList[neighbor_id] = neighbor;
+                        pq.push(neighbor);
+                    }
+                }
+       }
+
+       // if not found
+       return path;
+    }
+
+
+    // Manhattan distance
+double MainWindow::heuristic_manhattan(MyMesh* _mesh, int v1, int v2){
+    VertexHandle vh1 = _mesh->vertex_handle(v1);
+    VertexHandle vh2 = _mesh->vertex_handle(v2);
+    HalfedgeHandle heh =  _mesh->find_halfedge(vh1,vh2);
+    // If vh1 vh2 are two vertices of one edge
+    if(heh.is_valid()){
+        return _mesh->calc_edge_length(heh);
+    }else{
+        return std::abs(_mesh->point(vh2)[0] - _mesh->point(vh1)[0])+ std::abs(_mesh->point(vh2)[1] - _mesh->point(vh1)[1])+ std::abs(_mesh->point(vh2)[2] - _mesh->point(vh1)[2]);
+    }
+}
+
+double MainWindow::heuristic_euclidean(MyMesh* _mesh, int v1, int v2){
+    VertexHandle vh1 = _mesh->vertex_handle(v1);
+    VertexHandle vh2 = _mesh->vertex_handle(v2);
+    HalfedgeHandle heh =  _mesh->find_halfedge(vh1,vh2);
+    // If vh1 vh2 are two vertices of one edge
+    if(heh.is_valid()){
+        return _mesh->calc_edge_length(heh);
+    }else{
+        MyMesh::Point p1 = _mesh->point(MyMesh::VertexHandle(v1));
+        MyMesh::Point p2 = _mesh->point(MyMesh::VertexHandle(v2));
+        return sqrt(pow(p1[0] - p2[0], 2) + pow(p1[1] - p2[1], 2) + pow(p1[2] - p2[2], 2));
+    }
+}
 /* **** fin de la partie à compléter **** */
 
 

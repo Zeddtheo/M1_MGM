@@ -27,8 +27,23 @@ struct MyTraits : public OpenMesh::DefaultTraits
     // edge thickness
     EdgeTraits{float thickness;};
 };
-typedef OpenMesh::TriMesh_ArrayKernelT<MyTraits> MyMesh;
 
+struct Node {
+    int id;
+    double f, g, h;//total cost, cost sofar, cost heuristic
+    int parent;
+    Node(){};
+    Node(int id, double f, double g, double h, int parent) : id(id), f(f), g(g),h(h), parent(parent) {}
+    bool operator<(const Node& other) const { return f > other.f; }
+};
+
+struct CompareNodes{
+    bool operator() (const Node& n1, const Node& n2){
+        return n1.f>n2.f;
+    }
+};
+
+typedef OpenMesh::TriMesh_ArrayKernelT<MyTraits> MyMesh;
 
 enum DisplayMode {Normal, TemperatureMap, ColorShading};
 
@@ -49,6 +64,10 @@ public:
 
     void displayMesh(MyMesh *_mesh, DisplayMode mode = DisplayMode::Normal);
     void resetAllColorsAndThickness(MyMesh* _mesh);
+
+    inline double heuristic_manhattan(MyMesh* _mesh, int v1, int v2);
+    inline double heuristic_euclidean(MyMesh* _mesh, int v1, int v2);
+    std::vector<int> a_star(MyMesh* _mesh, int v1, int v2);
 
 private slots:
 

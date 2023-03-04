@@ -49,6 +49,7 @@ public:
     void loadLines(GLfloat* verts, GLfloat* colors, int nVerts, GLuint* lines, int nLines, QList<QPair<float, int> > es);
     void loadPoints(GLfloat* verts, GLfloat* colors, int nVerts, GLuint* points, int nPoints, QList<QPair<float, int> > vs);
 
+
     // buffer pour les VBO
     GLuint TriDataBuffers[2];
     // Nombre de triangles du mesh (pour le call du draw)
