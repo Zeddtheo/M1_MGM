@@ -13,10 +13,52 @@ void MainWindow::showSelections(MyMesh* _mesh)
      * qui sont les ID des élements sélectionnés et qui sont égales à -1 si la sélection est vide
      */
 
+    //Select vertices
+    if(vertexSelection >= 0 && static_cast<size_t>(vertexSelection) < _mesh->n_vertices()){
+        VertexHandle vh =_mesh->vertex_handle(vertexSelection);
+        _mesh->set_color(vh, MyMesh::Color(255, 0, 0));
+        _mesh->data(vh).thickness = 12;
+    }
+
+    //Select edges
+    if(edgeSelection >= 0 && static_cast<size_t>(edgeSelection) < _mesh->n_edges()){
+        EdgeHandle eh = _mesh->edge_handle(edgeSelection);
+        _mesh->set_color(eh, MyMesh::Color(0, 255, 0));
+        _mesh->data(eh).thickness = 4;
+
+        HalfedgeHandle heh = _mesh->halfedge_handle(eh, 0);
+
+        VertexHandle vh2 = _mesh->from_vertex_handle(heh);
+        _mesh->set_color(vh2, MyMesh::Color(0, 255, 0));
+        _mesh->data(vh2).thickness = 12;
+
+        VertexHandle vh1 = _mesh->to_vertex_handle(heh);
+        _mesh->set_color(vh1, MyMesh::Color(0, 255, 0));
+        _mesh->data(vh1).thickness = 12;
+    }
+
+    //Select faces
+    if(faceSelection >= 0 && static_cast<size_t>(faceSelection) < _mesh->n_faces()) {
+        FaceHandle fh = _mesh->face_handle(faceSelection);
+        _mesh->set_color(fh, MyMesh::Color(0, 0, 255));
+
+        HalfedgeHandle heh = _mesh->halfedge_handle(fh);
+        for(int i = 0; i < 3; ++i){
+            EdgeHandle eh = _mesh->edge_handle(heh);
+            _mesh->set_color(eh, MyMesh::Color(0, 0, 200));
+            _mesh->data(eh).thickness = 4;
+
+            VertexHandle vh = _mesh->to_vertex_handle(heh);
+            _mesh->set_color(vh, MyMesh::Color(0, 0, 200));
+            _mesh->data(vh).thickness = 12;
+
+            heh = _mesh->next_halfedge_handle(heh);
+        }
+    }
+
     // on affiche le nouveau maillage
     displayMesh(_mesh);
 }
-
 
 void MainWindow::showSelectionsNeighborhood(MyMesh* _mesh)
 {
@@ -32,11 +74,10 @@ void MainWindow::showSelectionsNeighborhood(MyMesh* _mesh)
      *    - les arêtes incidentes pour les sommets
      */
 
+
     // on affiche le nouveau maillage
     displayMesh(_mesh);
 }
-
-
 
 void MainWindow::showBorder(MyMesh* _mesh)
 {
@@ -44,11 +85,17 @@ void MainWindow::showBorder(MyMesh* _mesh)
     resetAllColorsAndThickness(_mesh);
 
     /* **** à compléter ! **** */
+    for (MyMesh::EdgeIter curEdge = _mesh->edges_begin(); curEdge != _mesh->edges_end(); curEdge++)
+    {
+        EdgeHandle eh = *curEdge;
+
+        if(_mesh->is_boundary(eh))
+            _mesh->set_color(eh, MyMesh::Color(255, 0, 255));
+    }
 
     // on affiche le nouveau maillage
     displayMesh(_mesh);
 }
-
 
 void MainWindow::showPath(MyMesh* _mesh, int v1, int v2)
 {
