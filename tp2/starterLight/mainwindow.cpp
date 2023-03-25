@@ -49,25 +49,25 @@ float MainWindow::angleFF(MyMesh *_mesh, int faceID0, int faceID1, int vertID0, 
     int sign = 0;
     FaceHandle fh0 = _mesh->face_handle(faceID0);
     FaceHandle fh1 = _mesh->face_handle(faceID1);
+    VertexHandle vh0 = _mesh->vertex_handle(vertID0);
+    VertexHandle vh1 = _mesh->vertex_handle(vertID1);
 
-    MyMesh::FaceVertexCCWIter fvccw = _mesh->fv_ccwiter(fh0);
-    if (fvccw->idx() == vertID0)
-    {
-        fvccw++;
-        if (fvccw->idx() == vertID1)
-        {
-            sign = 1;
-        }
-        else
-        {
-            sign = -1;
-        }
+    OpenMesh::Vec3f n0(_mesh->normal(fh0));
+    OpenMesh::Vec3f n1(_mesh->normal(fh1));
+
+    MyMesh::Point p0 = _mesh->point(vh0);
+    MyMesh::Point p1 = _mesh->point(vh1);
+
+    Vec3f cross_product = cross(n0,n1);
+    Vec3f p = p1 - p0;
+
+    float dot_norm_cross = dot(p,cross_product);
+    if(dot_norm_cross>0){
+        sign = 1;
+    }else{
+        sign = -1;
     }
-    OpenMesh::Vec3f normal0(sign * (_mesh->normal(fh0)));
-    OpenMesh::Vec3f normal1(_mesh->normal(fh1));
-
-    float scalar = normal0 | normal1;
-    return sign * acos(scalar);
+    return sign * acos(dot(n0,n1));
 }
 
 float MainWindow::angleEE(MyMesh *_mesh, int vertexID, int faceID)
@@ -116,7 +116,7 @@ float MainWindow::calc_sum_angleEE(MyMesh *_mesh, int vertexID)
     for (MyMesh::VertexFaceIter vf_it = _mesh->vf_iter(vh); vf_it.is_valid(); ++vf_it)
     {
         FaceHandle fh = *vf_it;
-        sum += angleEE(_mesh, vf_it->idx(), fh.idx());
+        sum += angleEE(_mesh, vh.idx(), fh.idx());
     }
 
     return sum;
