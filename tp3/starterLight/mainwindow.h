@@ -29,7 +29,6 @@ struct MyTraits : public OpenMesh::DefaultTraits
 };
 typedef OpenMesh::TriMesh_ArrayKernelT<MyTraits> MyMesh;
 
-
 enum DisplayMode {Normal, TemperatureMap, ColorShading};
 
 class MainWindow : public QMainWindow
@@ -46,7 +45,7 @@ public:
     void collapseEdge(MyMesh* _mesh, int edgeID);
     void decimation(MyMesh* _mesh, int percent, QString method);
     void updateEdgeSelectionIHM();
-
+    int randInt(int low, int high);
     void displayMesh(MyMesh *_mesh, DisplayMode mode = DisplayMode::Normal);
     void resetAllColorsAndThickness(MyMesh* _mesh);
 

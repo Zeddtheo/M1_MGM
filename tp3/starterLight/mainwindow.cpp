@@ -1,6 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-
+#include <QRandomGenerator>
 /* **** début de la partie à compléter **** */
 void MainWindow::showEdgeSelection(MyMesh* _mesh)
 {
@@ -11,6 +11,22 @@ void MainWindow::showEdgeSelection(MyMesh* _mesh)
      * cette fonction utilise la variables de sélection edgeSelection qui est l'ID de
      * l'arête sélectionnée et qui est égale à -1 si la sélection est vide
      */
+
+    if(edgeSelection >= 0 && static_cast<size_t>(edgeSelection) < _mesh->n_edges()){
+        EdgeHandle eh = _mesh->edge_handle(edgeSelection);
+        _mesh->set_color(eh, MyMesh::Color(0, 255, 0));
+        _mesh->data(eh).thickness = 4;
+
+        HalfedgeHandle heh = _mesh->halfedge_handle(eh, 0);
+
+        VertexHandle vh2 = _mesh->from_vertex_handle(heh);
+        _mesh->set_color(vh2, MyMesh::Color(0, 255, 0));
+        _mesh->data(vh2).thickness = 12;
+
+        VertexHandle vh1 = _mesh->to_vertex_handle(heh);
+        _mesh->set_color(vh1, MyMesh::Color(0, 255, 0));
+        _mesh->data(vh1).thickness = 12;
+    }
 
     // on affiche le nouveau maillage
     displayMesh(_mesh);
@@ -28,10 +44,29 @@ void MainWindow::collapseEdge(MyMesh* _mesh, int edgeID)
     _mesh->request_edge_status();
     _mesh->request_face_status();
 
+    //first make sure the edge is valid
+    if(edgeID >= 0 && static_cast<size_t>(edgeID) < _mesh->n_edges()){
+        EdgeHandle eh = _mesh->edge_handle(edgeID);
+        //get the halfedge handle
+        HalfedgeHandle heh = _mesh->halfedge_handle(eh, 0);
+        //check if it is collapsible
+        if(_mesh->is_collapse_ok(heh)){
+            MyMesh::Point p = _mesh->calc_edge_midpoint(heh);
+            //collapse the edge
+            _mesh->collapse(heh);
+            //use the mid point of the edge as the new vertex position
+            _mesh->set_point(_mesh->to_vertex_handle(heh), p);
 
+            // permet de nettoyer le maillage et de garder la cohérence des indices après un collapse
+            _mesh->garbage_collection();
+        }
+    }
 
-    // permet de nettoyer le maillage et de garder la cohérence des indices après un collapse
-    _mesh->garbage_collection();
+}
+
+int MainWindow::randInt(int low, int high){
+    //return qrand() % ((high+1)-low)+low;
+    return QRandomGenerator::global()->bounded(low, high + 1);
 }
 
 void MainWindow::decimation(MyMesh* _mesh, int percent, QString method)
@@ -42,9 +77,25 @@ void MainWindow::decimation(MyMesh* _mesh, int percent, QString method)
      * method  : la méthode à utiliser parmis : "Aléatoire", "Par taille", "Par angle", "Par planéité"
      */
 
+
     if(method == "Aléatoire")
     {
-
+        // get the number of edges
+        int nbEdges = _mesh->n_edges();
+        //get the number of edges to remove
+        int nbEdgesToRemove = _mesh->n_edges() - (_mesh->n_edges() * percent / 100);
+        //check if the number of edges to remove is not greater than the number of edges
+        if(nbEdgesToRemove > nbEdges){
+            nbEdgesToRemove = nbEdges;
+        }
+        //remove the edges
+        for(int i = 0; i < nbEdgesToRemove; i++){
+            //get a random edge
+            int edgeID = randInt(0, nbEdges - 1);
+            //collapse the edge
+            collapseEdge(_mesh, edgeID);
+        }
+        qDebug() << "nbEdgesToRemove : " << nbEdgesToRemove;
     }
     else if(method == "Par taille")
     {
