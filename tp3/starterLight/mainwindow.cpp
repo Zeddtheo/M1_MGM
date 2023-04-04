@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include <QRandomGenerator>
+#include <queue>
 /* **** début de la partie à compléter **** */
 void MainWindow::showEdgeSelection(MyMesh* _mesh)
 {
@@ -99,23 +100,193 @@ void MainWindow::decimation(MyMesh* _mesh, int percent, QString method)
     }
     else if(method == "Par taille")
     {
+        //we need to compute and compare the length of each edge
+        //we need to store the length of each edge
+        std::vector<float> edgeLengths;
+        //we need to store the edge handles
+        std::vector<EdgeHandle> edgeHandles;
+        //we need to store the edge IDs
+        std::vector<int> edgeIDs;
+        //we need to store the edge IDs sorted by length
+        std::vector<int> edgeIDsSorted;
+
+        //get the number of edges
+        int nbEdges = _mesh->n_edges();
+        //get the number of edges to remove
+        int nbEdgesToRemove = _mesh->n_edges() - (_mesh->n_edges() * percent / 100);
+        //check if the number of edges to remove is not greater than the number of edges
+        if(nbEdgesToRemove > nbEdges){
+            nbEdgesToRemove = nbEdges;
+        }
+
+        //get the edge lengths
+        for(int i = 0; i < nbEdges; i++){
+            EdgeHandle eh = _mesh->edge_handle(i);
+            //get the halfedge handle
+            HalfedgeHandle heh = _mesh->halfedge_handle(eh, 0);
+            //get the edge length
+            float edgeLength = _mesh->calc_edge_length(heh);
+            //store the edge length
+            edgeLengths.push_back(edgeLength);
+            //store the edge handle
+            edgeHandles.push_back(eh);
+            //store the edge ID
+            edgeIDs.push_back(i);
+        }
+
+        //sort the edge IDs by length
+        edgeIDsSorted = edgeIDs;
+        std::sort(edgeIDsSorted.begin(), edgeIDsSorted.end(), [&edgeLengths](int i1, int i2) {return edgeLengths[i1] < edgeLengths[i2];});
+
+        //remove the edges
+        for(int i = 0; i < nbEdgesToRemove; i++){
+            //get the edge ID
+            int edgeID = edgeIDsSorted[i];
+            //collapse the edge
+            collapseEdge(_mesh, edgeID);
+        }
+        qDebug() << "nbEdgesToRemove : " << nbEdgesToRemove;
 
     }
     else if(method == "Par angle")
     {
+        //on supprime en priorité les arêtes qui ont des faces voisines qui sont proches d'un plan.
+        //on va donc calculer l'angle entre les normales des faces voisines
+        //on va stocker les angles
+        std::vector<float> edgeAngles;
+        //on va stocker les edge handles
+        std::vector<EdgeHandle> edgeHandles;
+        //on va stocker les edge IDs
+        std::vector<int> edgeIDs;
+        //on va stocker les edge IDs triés par angle
+        std::vector<int> edgeIDsSorted;
+        
+        //get the number of edges
+        int nbEdges = _mesh->n_edges();
+        //get the number of edges to remove
+        int nbEdgesToRemove = _mesh->n_edges() - (_mesh->n_edges() * percent / 100);
+        //check if the number of edges to remove is not greater than the number of edges
+        if(nbEdgesToRemove > nbEdges){
+            nbEdgesToRemove = nbEdges;
+        }
+
+        //get the edge angles
+        for(int i = 0; i < nbEdges; i++){
+            EdgeHandle eh = _mesh->edge_handle(i);
+            //get the halfedge handle
+            HalfedgeHandle heh = _mesh->halfedge_handle(eh, 0);
+            //get the edge angle
+            float edgeAngle = _mesh->calc_dihedral_angle(heh);
+            //store the edge angle
+            edgeAngles.push_back(edgeAngle);
+            //store the edge handle
+            edgeHandles.push_back(eh);
+            //store the edge ID
+            edgeIDs.push_back(i);
+        }
+
+        //sort the edge IDs by angle
+        edgeIDsSorted = edgeIDs;
+        std::sort(edgeIDsSorted.begin(), edgeIDsSorted.end(), [&edgeAngles](int i1, int i2) {return edgeAngles[i1] < edgeAngles[i2];});
+
+        //remove the edges
+        for(int i = 0; i < nbEdgesToRemove; i++){
+            //get the edge ID
+            int edgeID = edgeIDsSorted[i];
+            //collapse the edge
+            collapseEdge(_mesh, edgeID);
+        }
+        qDebug() << "nbEdgesToRemove : " << nbEdgesToRemove;
 
     }
     else if(method == "Par planéité")
     {
+        // We will store the edge angles
+        std::vector<float> edgeAngles;
+        // We will store the edge handles
+        std::vector<EdgeHandle> edgeHandles;
+        // We will store the edge IDs
+        std::vector<int> edgeIDs;
+        // We will store the edge IDs sorted by angle
+        std::vector<int> edgeIDsSorted;
 
+        // Get the number of edges
+        int nbEdges = _mesh->n_edges();
+        // Get the number of edges to remove
+        int nbEdgesToRemove = _mesh->n_edges() - (_mesh->n_edges() * percent / 100);
+        // Check if the number of edges to remove is not greater than the number of edges
+        if(nbEdgesToRemove > nbEdges){
+            nbEdgesToRemove = nbEdges;
+        }
+
+        // Get the edge angles
+        for(int i = 0; i < nbEdges; i++){
+            EdgeHandle eh = _mesh->edge_handle(i);
+            // Get the halfedge handle
+            HalfedgeHandle heh = _mesh->halfedge_handle(eh, 0);
+            // Get the adjacent faces
+            FaceHandle fh0 = _mesh->face_handle(heh);
+            FaceHandle fh1 = _mesh->opposite_face_handle(heh);
+            // Check if the edge is a boundary edge
+            if(fh1.is_valid()){
+                // Get the vertices of the halfedge
+                VertexHandle vh0 = _mesh->from_vertex_handle(heh);
+                VertexHandle vh1 = _mesh->to_vertex_handle(heh);
+                // Calculate the angle between the adjacent faces
+                float angle = angleFF(_mesh, fh0.idx(), fh1.idx(), vh0.idx(), vh1.idx());
+                // Store the edge angle
+                edgeAngles.push_back(angle);
+            } else {
+                // For boundary edges, store a large value so they won't be removed
+                edgeAngles.push_back(std::numeric_limits<float>::max());
+            }
+            // Store the edge handle
+            edgeHandles.push_back(eh);
+            // Store the edge ID
+            edgeIDs.push_back(i);
+        }
+
+        // Sort the edge IDs by angle
+        edgeIDsSorted = edgeIDs;
+        std::sort(edgeIDsSorted.begin(), edgeIDsSorted.end(), [&edgeAngles](int i1, int i2) {return edgeAngles[i1] < edgeAngles[i2];});
+
+        // Remove the edges
+        for(int i = 0; i < nbEdgesToRemove; i++){
+            // Get the edge ID
+            int edgeID = edgeIDsSorted[i];
+            // Collapse the edge
+            collapseEdge(_mesh, edgeID);
+        }
+        qDebug() << "nbEdgesToRemove : " << nbEdgesToRemove;
     }
+
     else
     {
         qDebug() << "Méthode inconnue !!!";
     }
 
 }
+float MainWindow::angleFF(MyMesh *_mesh, int faceID0, int faceID1, int vertID0, int vertID1)
+{
+    /* **** à compléter ! **** */
+    FaceHandle fh0 = _mesh->face_handle(faceID0);
+    FaceHandle fh1 = _mesh->face_handle(faceID1);
+    VertexHandle vh0 = _mesh->vertex_handle(vertID0);
+    VertexHandle vh1 = _mesh->vertex_handle(vertID1);
 
+    OpenMesh::Vec3f n0(_mesh->normal(fh0));
+    OpenMesh::Vec3f n1(_mesh->normal(fh1));
+
+    MyMesh::Point p0 = _mesh->point(vh0);
+    MyMesh::Point p1 = _mesh->point(vh1);
+
+    Vec3f cross_product = OpenMesh::cross(n0, n1);
+    Vec3f p = p1 - p0;
+
+    float dot_norm_cross = OpenMesh::dot(p, cross_product);
+    int sign = (dot_norm_cross > 0) ? 1 : -1;
+    return sign * std::acos(OpenMesh::dot(n0, n1));
+}
 /* **** début de la partie boutons et IHM **** */
 void MainWindow::updateEdgeSelectionIHM()
 {

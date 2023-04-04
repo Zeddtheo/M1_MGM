@@ -48,7 +48,7 @@ public:
     int randInt(int low, int high);
     void displayMesh(MyMesh *_mesh, DisplayMode mode = DisplayMode::Normal);
     void resetAllColorsAndThickness(MyMesh* _mesh);
-
+    float angleFF(MyMesh *_mesh, int faceID0, int faceID1, int vertID0, int vertID1);
 private slots:
 
     void on_pushButton_chargement_clicked();
